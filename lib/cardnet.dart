@@ -23,4 +23,14 @@ class Cardnet {
       jsonPrint: jsonPrint,
     );
   }
+
+  static Future<Result<CardnetResponse, String>> printLinesQr({
+    required List<String> lines,
+    String? qr,
+  }) {
+    return CardnetPlatform.instance.printLinesQr(
+      lines: lines,
+      qr: qr,
+    );
+  }
 }

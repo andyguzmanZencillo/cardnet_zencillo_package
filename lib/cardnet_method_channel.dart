@@ -30,6 +30,38 @@ class MethodChannelCardnet extends CardnetPlatform {
     }
   }
 
+  @override
+  Future<Result<CardnetResponse, String>> printJson({
+    required Map<String, dynamic> jsonPrint,
+  }) async {
+    try {
+      final result = await methodChannel.invokeMethod("print", {
+        "json": jsonEncode(jsonPrint),
+      });
+
+      return _parseCardnetResponse(result);
+    } catch (e) {
+      return Err("Excepción inesperada imprimiendo en Cardnet: $e");
+    }
+  }
+
+  @override
+  Future<Result<CardnetResponse, String>> printLinesQr({
+    required List<String> lines,
+    String? qr,
+  }) async {
+    try {
+      final result = await methodChannel.invokeMethod("printLinesQr", {
+        "lines": lines,
+        "qr": qr,
+      });
+
+      return _parseCardnetResponse(result);
+    } catch (e) {
+      return Err("Excepción inesperada imprimiendo líneas en Cardnet: $e");
+    }
+  }
+
   Result<CardnetResponse, String> _parseCardnetResponse(dynamic result) {
     if (result == null) {
       return const Err("No se recibió respuesta de Cardnet");
@@ -64,20 +96,5 @@ class MethodChannelCardnet extends CardnetPlatform {
     }
 
     return Err("Tipo de respuesta no soportado: ${result.runtimeType}");
-  }
-
-  @override
-  Future<Result<CardnetResponse, String>> printJson({
-    required Map<String, dynamic> jsonPrint,
-  }) async {
-    try {
-      final result = await methodChannel.invokeMethod("print", {
-        "json": jsonEncode(jsonPrint),
-      });
-
-      return _parseCardnetResponse(result);
-    } catch (e) {
-      return Err("Excepción inesperada imprimiendo en Cardnet: $e");
-    }
   }
 }

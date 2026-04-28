@@ -26,4 +26,9 @@ abstract class CardnetPlatform extends PlatformInterface {
   Future<Result<CardnetResponse, String>> printJson({
     required Map<String, dynamic> jsonPrint,
   });
+
+  Future<Result<CardnetResponse, String>> printLinesQr({
+    required List<String> lines,
+    String? qr,
+  });
 }
