@@ -37,6 +37,15 @@ class CardNetPlugin :
     private val PARAM_RES_MESSAGE = "$ACTION_RESPONSE.paramsMESSAGE"
     private val PARAM_RES_DATA = "$ACTION_RESPONSE.paramsDATA"
 
+    // ============================================================
+    // IMPRESIÓN CARDNET
+    // ============================================================
+
+    private val ACTION_REQUEST_PRINT = "com.necomplus.tpv.device.print.request"
+
+    private val PARAM_DATA_VOUCHER =
+        "com.necomplus.tpv.device.print.params.DATA_VOUCHER"
+
     private var receiverRegistered = false
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
@@ -64,6 +73,42 @@ class CardNetPlugin :
                 startReceiver()
                 sendSale()
             }
+
+            "print" -> {
+                val jsonPrint = call.argument<String>("json")
+
+                if (jsonPrint.isNullOrBlank()) {
+                    val errorJson = JSONObject().apply {
+                        put("code", 1)
+                        put("message", "El JSON de impresión está vacío")
+                    }
+
+                    result.success(errorJson.toString())
+                    return
+                }
+
+                val validationMessage = validatePrintJson(jsonPrint)
+
+                if (validationMessage != null) {
+                    val errorJson = JSONObject().apply {
+                        put("code", 1)
+                        put("message", validationMessage)
+                    }
+
+                    result.success(errorJson.toString())
+                    return
+                }
+
+                sendPrint(jsonPrint)
+
+                val responseJson = JSONObject().apply {
+                    put("code", 0)
+                    put("message", "Impresión enviada al datáfono")
+                }
+
+                result.success(responseJson.toString())
+            }
+
             else -> result.notImplemented()
         }
     }
@@ -73,7 +118,9 @@ class CardNetPlugin :
     }
 
     override fun onDetachedFromActivity() { activity = null }
+
     override fun onDetachedFromActivityForConfigChanges() {}
+
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
 
     private val receiver = object : BroadcastReceiver() {
@@ -114,6 +161,79 @@ class CardNetPlugin :
         context?.sendBroadcast(intent)
 
         Log.d("CARDNET", "Transacción enviada al datáfono")
+    }
+
+    // ============================================================
+    // ENVÍO DE IMPRESIÓN
+    // ============================================================
+
+    private fun sendPrint(dataPrint: String) {
+        val intent = Intent(ACTION_REQUEST_PRINT)
+
+        intent.setPackage("com.necomplus.tpv")
+        intent.putExtra(PARAM_DATA_VOUCHER, dataPrint)
+
+        context?.sendBroadcast(intent)
+
+        Log.d("CARDNET", "Impresión enviada al datáfono")
+        Log.d("CARDNET", dataPrint)
+    }
+
+    private fun validatePrintJson(jsonPrint: String): String? {
+        return try {
+            val obj = JSONObject(jsonPrint)
+
+            if (!obj.has("rows")) {
+                return "El JSON de impresión no contiene el campo rows"
+            }
+
+            val rows = obj.optJSONArray("rows")
+
+            if (rows == null) {
+                return "El campo rows debe ser un arreglo"
+            }
+
+            if (rows.length() == 0) {
+                return "El arreglo rows está vacío"
+            }
+
+            for (i in 0 until rows.length()) {
+                val row = rows.optJSONObject(i)
+                    ?: return "La fila $i no es un objeto JSON válido"
+
+                val type = row.optString("type", "")
+
+                if (type.isBlank()) {
+                    return "La fila $i no contiene type"
+                }
+
+                when (type.uppercase()) {
+                    "TEXT" -> {
+                        if (!row.has("text")) {
+                            return "La fila $i de tipo TEXT no contiene text"
+                        }
+                    }
+
+                    "QR" -> {
+                        if (!row.has("content")) {
+                            return "La fila $i de tipo QR no contiene content"
+                        }
+                    }
+
+                    "BR" -> {
+                        // No requiere campos adicionales.
+                    }
+
+                    else -> {
+                        return "La fila $i tiene un type no soportado: $type"
+                    }
+                }
+            }
+
+            null
+        } catch (e: Exception) {
+            "JSON inválido: ${e.message}"
+        }
     }
 
     private fun handleResponse(code: Int, message: String, data: String) {
