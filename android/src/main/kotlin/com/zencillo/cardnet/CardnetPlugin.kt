@@ -13,6 +13,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import com.zencillo.cardnet.models.ModelPay
 import com.zencillo.cardnet.models.ResponsePay
+import org.json.JSONArray
 import org.json.JSONObject
 
 class CardNetPlugin :
@@ -66,6 +67,7 @@ class CardNetPlugin :
             }
         }
         channel.setMethodCallHandler(null)
+        context = null
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -130,6 +132,69 @@ class CardNetPlugin :
                         buildResponseJson(
                             code = 1,
                             message = "Error enviando impresión: ${e.message}"
+                        ).toString()
+                    )
+                }
+            }
+
+            // ====================================================
+            // IMPRESIÓN RECIBIENDO LISTA DE TEXTOS Y QR
+            // ====================================================
+            "printLinesQr" -> {
+                val lines = call.argument<List<String>>("lines")
+                val qr = call.argument<String>("qr")
+
+                if (lines == null || lines.isEmpty()) {
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "La lista de textos para imprimir está vacía"
+                        ).toString()
+                    )
+                    return
+                }
+
+                if (!isPackageInstalled(CARDNET_PACKAGE)) {
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "El paquete $CARDNET_PACKAGE no está instalado en este dispositivo"
+                        ).toString()
+                    )
+                    return
+                }
+
+                try {
+                    val jsonPrint = buildPrintJsonFromLines(
+                        lines = lines,
+                        qr = qr
+                    )
+
+                    val validationMessage = validatePrintJson(jsonPrint)
+
+                    if (validationMessage != null) {
+                        result.success(
+                            buildResponseJson(
+                                code = 1,
+                                message = validationMessage
+                            ).toString()
+                        )
+                        return
+                    }
+
+                    sendPrint(jsonPrint)
+
+                    result.success(
+                        buildResponseJson(
+                            code = 0,
+                            message = "Impresión enviada al datáfono"
+                        ).toString()
+                    )
+                } catch (e: Exception) {
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "Error preparando impresión: ${e.message}"
                         ).toString()
                     )
                 }
@@ -207,6 +272,66 @@ class CardNetPlugin :
 
         Log.d("CARDNET", "Impresión enviada al datáfono")
         Log.d("CARDNET", dataPrint)
+    }
+
+    private fun buildPrintJsonFromLines(
+        lines: List<String>,
+        qr: String?
+    ): String {
+        val rows = JSONArray()
+
+        for (line in lines) {
+            rows.put(
+                JSONObject().apply {
+                    put("type", "TEXT")
+                    put("text", line)
+                    put("align", "CENTER")
+                    put("fontSize", 20)
+                    put("isBold", false)
+                    put("isUnderline", false)
+                    put("isInverse", false)
+                }
+            )
+
+            rows.put(
+                JSONObject().apply {
+                    put("type", "BR")
+                }
+            )
+        }
+
+        if (!qr.isNullOrBlank()) {
+            rows.put(
+                JSONObject().apply {
+                    put("type", "BR")
+                }
+            )
+
+            rows.put(
+                JSONObject().apply {
+                    put("type", "QR")
+                    put("content", qr.trim())
+                    put("size", "150")
+                    put("align", "CENTER")
+                }
+            )
+
+            rows.put(
+                JSONObject().apply {
+                    put("type", "BR")
+                }
+            )
+        }
+
+        rows.put(
+            JSONObject().apply {
+                put("type", "BR")
+            }
+        )
+
+        return JSONObject().apply {
+            put("rows", rows)
+        }.toString()
     }
 
     private fun validatePrintJson(jsonPrint: String): String? {
