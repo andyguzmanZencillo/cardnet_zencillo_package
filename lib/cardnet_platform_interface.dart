@@ -17,10 +17,13 @@ abstract class CardnetPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  // MÉTODOS QUE EL PLUGIN DEBE IMPLEMENTAR:
   Future<Result<CardnetResponse, String>> pay({
     required double amount,
     required double tax,
     required int invoice,
+  });
+
+  Future<Result<CardnetResponse, String>> printJson({
+    required Map<String, dynamic> jsonPrint,
   });
 }

@@ -15,4 +15,12 @@ class Cardnet {
       invoice: invoice,
     );
   }
+
+  static Future<Result<CardnetResponse, String>> printJson({
+    required Map<String, dynamic> jsonPrint,
+  }) {
+    return CardnetPlatform.instance.printJson(
+      jsonPrint: jsonPrint,
+    );
+  }
 }
