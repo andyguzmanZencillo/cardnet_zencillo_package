@@ -2,6 +2,8 @@ package com.zencillo.cardnet
 
 import android.app.Activity
 import android.content.*
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.annotation.NonNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -46,6 +48,8 @@ class CardNetPlugin :
     private val PARAM_DATA_VOUCHER =
         "com.necomplus.tpv.device.print.params.DATA_VOUCHER"
 
+    private val CARDNET_PACKAGE = "com.necomplus.tpv"
+
     private var receiverRegistered = false
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
@@ -56,7 +60,10 @@ class CardNetPlugin :
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         if (receiverRegistered) {
-            context?.unregisterReceiver(receiver)
+            try {
+                context?.unregisterReceiver(receiver)
+            } catch (_: Exception) {
+            }
         }
         channel.setMethodCallHandler(null)
     }
@@ -78,35 +85,54 @@ class CardNetPlugin :
                 val jsonPrint = call.argument<String>("json")
 
                 if (jsonPrint.isNullOrBlank()) {
-                    val errorJson = JSONObject().apply {
-                        put("code", 1)
-                        put("message", "El JSON de impresión está vacío")
-                    }
-
-                    result.success(errorJson.toString())
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "El JSON de impresión está vacío"
+                        ).toString()
+                    )
                     return
                 }
 
                 val validationMessage = validatePrintJson(jsonPrint)
 
                 if (validationMessage != null) {
-                    val errorJson = JSONObject().apply {
-                        put("code", 1)
-                        put("message", validationMessage)
-                    }
-
-                    result.success(errorJson.toString())
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = validationMessage
+                        ).toString()
+                    )
                     return
                 }
 
-                sendPrint(jsonPrint)
-
-                val responseJson = JSONObject().apply {
-                    put("code", 0)
-                    put("message", "Impresión enviada al datáfono")
+                if (!isPackageInstalled(CARDNET_PACKAGE)) {
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "El paquete $CARDNET_PACKAGE no está instalado en este dispositivo"
+                        ).toString()
+                    )
+                    return
                 }
 
-                result.success(responseJson.toString())
+                try {
+                    sendPrint(jsonPrint)
+
+                    result.success(
+                        buildResponseJson(
+                            code = 0,
+                            message = "Impresión enviada al datáfono"
+                        ).toString()
+                    )
+                } catch (e: Exception) {
+                    result.success(
+                        buildResponseJson(
+                            code = 1,
+                            message = "Error enviando impresión: ${e.message}"
+                        ).toString()
+                    )
+                }
             }
 
             else -> result.notImplemented()
@@ -117,7 +143,9 @@ class CardNetPlugin :
         activity = binding.activity
     }
 
-    override fun onDetachedFromActivity() { activity = null }
+    override fun onDetachedFromActivity() {
+        activity = null
+    }
 
     override fun onDetachedFromActivityForConfigChanges() {}
 
@@ -151,7 +179,7 @@ class CardNetPlugin :
 
     private fun sendSale() {
         val intent = Intent(ACTION_REQUEST)
-        intent.setPackage("com.necomplus.tpv")
+        intent.setPackage(CARDNET_PACKAGE)
 
         intent.putExtra(PARAM_REQ_AMOUNT, modelPay.rAmount)
         intent.putExtra(PARAM_REQ_ITBIS, modelPay.rTax)
@@ -168,12 +196,14 @@ class CardNetPlugin :
     // ============================================================
 
     private fun sendPrint(dataPrint: String) {
+        val ctx = context ?: throw Exception("Contexto Android no disponible")
+
         val intent = Intent(ACTION_REQUEST_PRINT)
 
-        intent.setPackage("com.necomplus.tpv")
+        intent.setPackage(CARDNET_PACKAGE)
         intent.putExtra(PARAM_DATA_VOUCHER, dataPrint)
 
-        context?.sendBroadcast(intent)
+        ctx.sendBroadcast(intent)
 
         Log.d("CARDNET", "Impresión enviada al datáfono")
         Log.d("CARDNET", dataPrint)
@@ -236,6 +266,33 @@ class CardNetPlugin :
         }
     }
 
+    private fun isPackageInstalled(packageName: String): Boolean {
+        val ctx = context ?: return false
+
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ctx.packageManager.getPackageInfo(
+                    packageName,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.packageManager.getPackageInfo(packageName, 0)
+            }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun buildResponseJson(code: Int, message: String): JSONObject {
+        return JSONObject().apply {
+            put("code", code)
+            put("message", message)
+            put("data", JSONObject())
+        }
+    }
+
     private fun handleResponse(code: Int, message: String, data: String) {
         if (pendingResult == null) return
 
@@ -252,7 +309,8 @@ class CardNetPlugin :
                 response.rrn = obj.optString("systemRrn", "")
                 response.receipt = obj.optString("systemAuthCode", "")
                 response.terminalId = obj.optString("terminalId", "")
-                response.timeDate = obj.optString("dateTx", "") + " " + obj.optString("hourTx", "")
+                response.timeDate =
+                    obj.optString("dateTx", "") + " " + obj.optString("hourTx", "")
                 response.lastFourDigitsCard = obj.optString("panMasked", "")
                 response.franchise = obj.optString("typeFranchieseLabel", "")
                 response.accountType = obj.optString("appLabel", "")
