@@ -303,31 +303,14 @@ class CardNetPlugin :
         if (!qr.isNullOrBlank()) {
             rows.put(
                 JSONObject().apply {
-                    put("type", "BR")
-                }
-            )
-
-            rows.put(
-                JSONObject().apply {
                     put("type", "QR")
                     put("content", qr.trim())
                     put("size", "150")
-                    put("align", "CENTER")
-                }
-            )
-
-            rows.put(
-                JSONObject().apply {
-                    put("type", "BR")
+                    put("align", "RIGHT")
                 }
             )
         }
 
-        rows.put(
-            JSONObject().apply {
-                put("type", "BR")
-            }
-        )
 
         return JSONObject().apply {
             put("rows", rows)
