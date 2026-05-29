@@ -427,6 +427,14 @@ class CardNetPlugin :
                 val resultJson = JSONObject().apply {
                     put("code", 0)
                     put("message", "Pago exitoso")
+
+                    // JSON bruto como String, tal como llega desde CardNet
+                    put("rawCardnetData", data)
+
+                    // JSON bruto como objeto JSON, para verlo estructurado en Flutter
+                    put("rawCardnetJson", obj)
+
+                    // Tu respuesta ya mapeada
                     put("data", JSONObject(response.toMap()))
                 }
 

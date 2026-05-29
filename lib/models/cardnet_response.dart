@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cardnet/extension/get_pro.dart';
 
 class CardnetResponse {
@@ -20,7 +22,15 @@ class CardnetResponse {
   final double amountSend;
   final double taxSend;
   final int isla;
+
+  /// Tu data procesada/mapeada
   final String data;
+
+  /// JSON bruto como String, tal como llegó desde CardNet
+  final String rawCardnetData;
+
+  /// JSON bruto ya convertido a Map
+  final Map<String, dynamic> rawCardnetJson;
 
   CardnetResponse({
     required this.code,
@@ -43,11 +53,23 @@ class CardnetResponse {
     required this.taxSend,
     required this.isla,
     required this.data,
+    required this.rawCardnetData,
+    required this.rawCardnetJson,
   });
 
   factory CardnetResponse.fromJson(Map<String, dynamic> json) {
-    final data = json.getPro('data', <String, dynamic>{});
+    final data = Map<String, dynamic>.from(
+      json.getPro('data', <String, dynamic>{}),
+    );
+
     data.addEntries({'message': json.getPro('message', '')}.entries);
+
+    final rawJsonValue = json.getPro('rawCardnetJson', <String, dynamic>{});
+
+    final rawCardnetJson = rawJsonValue is Map<String, dynamic>
+        ? Map<String, dynamic>.from(rawJsonValue)
+        : <String, dynamic>{};
+
     return CardnetResponse(
       code: json.getPro('code', 0),
       message: json.getPro('message', ''),
@@ -67,31 +89,14 @@ class CardnetResponse {
       idInvoice: data.getPro('idInvoice', 0),
       amountSend: data.getPro('amountSend', 0.0),
       taxSend: data.getPro('taxSend', 0.0),
-      isla: data.getPro(
-        'isla',
-        0,
-      ),
-      data: data.toString(),
+      isla: data.getPro('isla', 0),
+
+      // Data procesada
+      data: jsonEncode(data),
+
+      // Respuesta bruta de CardNet
+      rawCardnetData: json.getPro('rawCardnetData', ''),
+      rawCardnetJson: rawCardnetJson,
     );
   }
-
-  /*CardnetResponse.fromJson(Map<String, dynamic> json)
-      : message = json.getPro('message', ''),
-        autorizationCode = json.getPro('autorizationCode', ''),
-        value = json.getPro('value', ''),
-        tax = json.getPro('tax', ''),
-        receipt = json.getPro('receipt', ''),
-        rrn = json.getPro('rrn', ''),
-        terminalId = json.getPro('terminalId', ''),
-        timeDate = json.getPro('timeDate', ''),
-        responseCode = json.getPro('responseCode', ''),
-        franchise = json.getPro('franchise', ''),
-        accountType = json.getPro('accountType', ''),
-        quotas = json.getPro('quotas', ''),
-        lastFourDigitsCard = json.getPro('lastFourDigitsCard', ''),
-        merchantPosId = json.getPro('merchantPosId', ''),
-        idInvoice = json.getPro('idInvoice', 0),
-        amountSend = json.getPro('amountSend', 0.0),
-        taxSend = json.getPro('taxSend', 0),
-        isla = json.getPro('isla', 0);*/
 }
