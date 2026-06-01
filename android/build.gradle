@@ -26,7 +26,9 @@ apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
-    namespace = "com.zencillo.cardnet"
+    if (project.android.hasProperty("namespace")) {
+        namespace = "com.zencillo.cardnet"
+    }
 
     compileSdk = 35
 
@@ -46,7 +48,7 @@ android {
 
     defaultConfig {
         minSdk = 21
-        targetSdk = 35
+        targetSdk = 34
     }
 
     testOptions {
