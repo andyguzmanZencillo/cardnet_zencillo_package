@@ -1,6 +1,5 @@
 import 'dart:convert';
-
-import 'package:cardnet/extension/get_pro.dart';
+import 'package:zencillo_helpers/zencillo_helpers.dart';
 
 class CardnetResponse {
   final int code;
