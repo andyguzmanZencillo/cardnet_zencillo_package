@@ -66,6 +66,7 @@ extension CardnetFormaPagoDetalleMapper on CardnetResponse {
       idCashBack: 0,
       anulada: false,
       multiplesVentas: false,
+      result: true,
     );
 
     return result;
