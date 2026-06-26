@@ -48,6 +48,32 @@ class Cardnet {
     ));
   }
 
+  static Future<Result<FormaPagoDetalleModel, String>> payComplete({
+    required double total,
+    required double taxTotal,
+    required double subTotal,
+    required int invoice,
+  }) async {
+    final result = await CardnetPlatform.instance.pay(
+      amount: total,
+      tax: taxTotal,
+      invoice: invoice,
+    );
+    if (result.isErr()) {
+      return Err(result.unwrapErr());
+    }
+    final data = result.unwrap();
+    return Ok(data.toFormaPagoDetalle(
+      idTurno: 0,
+      numeroTurno: 0,
+      idDocument: 0,
+      total: total,
+      taxTotal: taxTotal,
+      subTotal: subTotal,
+      idFormaPago: 0,
+    ));
+  }
+
   static Future<Result<CardnetResponse, String>> printJson({
     required Map<String, dynamic> jsonPrint,
   }) {
